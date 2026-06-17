@@ -1,12 +1,10 @@
-﻿using System.Text;
-using PersonValidationService.Models;
+﻿using PersonValidationService.Models;
 
 namespace PersonValidationService.Services;
 
 public sealed class CsvResultWriter
 {
     private readonly string _filePath;
-    private bool _headerWritten = false;
 
     public CsvResultWriter(IConfiguration configuration)
     {
@@ -15,14 +13,14 @@ public sealed class CsvResultWriter
 
     public async Task WriteAsync(ValidationResult result)
     {
-        var line = $"{result.PersonId},{result.Passport},{result.IsValid},{result.Ssn},{result.Error}";
-
-        if (!_headerWritten)
+        if (!File.Exists(_filePath))
         {
-            var header = "PersonId,Passport,IsValid,Ssn,Error";
-            await File.AppendAllTextAsync(_filePath, header + Environment.NewLine);
-            _headerWritten = true;
+            await File.WriteAllTextAsync(
+                _filePath,
+                "PersonId,Passport,IsValid,Ssn,Error" + Environment.NewLine);
         }
+
+        var line = $"{result.PersonId},{result.Passport},{result.IsValid},{result.Ssn},{result.Error}";
 
         await File.AppendAllTextAsync(_filePath, line + Environment.NewLine);
     }

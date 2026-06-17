@@ -11,6 +11,7 @@ public sealed class ValidationWorker : BackgroundService
     private readonly PersonRepository _personRepository;
     private readonly ValidatorApiClient _validatorApiClient;
     private readonly DecisionService _decisionService;
+    private readonly IHostApplicationLifetime _lifetime;
 
     public ValidationWorker(
         ILogger<ValidationWorker> logger,
@@ -18,7 +19,8 @@ public sealed class ValidationWorker : BackgroundService
         FilePersonReader filePersonReader,
         PersonRepository personRepository,
         ValidatorApiClient validatorApiClient,
-        DecisionService decisionService)
+        DecisionService decisionService,
+        IHostApplicationLifetime lifetime)
     {
         _logger = logger;
         _configuration = configuration;
@@ -26,6 +28,7 @@ public sealed class ValidationWorker : BackgroundService
         _personRepository = personRepository;
         _validatorApiClient = validatorApiClient;
         _decisionService = decisionService;
+        _lifetime = lifetime;
     }
 
     protected override async Task ExecuteAsync(
@@ -50,18 +53,8 @@ public sealed class ValidationWorker : BackgroundService
                         personId,
                         stoppingToken);
 
-                if (dbDocuments.Count == 0)
-                {
-                    //await _decisionService.WriteIssueAsync(
-                    //    personId,
-                    //    "NO_DOCUMENTS_IN_DB",
-                    //    null);
-                    Console.WriteLine($"No documents found for PersonId={personId}");
-                    continue;
-                }
-
-                var responses =
-                    new List<ValidatorResponse>();
+                var checks =
+                    new List<(string Passport, ValidatorResponse? Response, string? Error)>();
 
                 foreach (var passport in dbDocuments)
                 {
@@ -72,25 +65,24 @@ public sealed class ValidationWorker : BackgroundService
                                 passport,
                                 stoppingToken);
 
-                        if (response != null)
-                        {
-                            responses.Add(response);
-                        }
+                        checks.Add((passport, response, null));
                     }
                     catch (Exception ex)
                     {
-                        //await _decisionService.WriteIssueAsync(
-                        //    personId,
-                        //    "API_ERROR",
-                        //    ex.Message);
-                        Console.WriteLine($"API_ERROR : Error occurred while validating document for PersonId={personId}: {ex.Message}");
+                        _logger.LogWarning(
+                            ex,
+                            "API_ERROR for PersonId={PersonId} Passport={Passport}",
+                            personId,
+                            passport);
+
+                        checks.Add((passport, null, ex.Message));
                     }
                 }
 
                 await _decisionService.ProcessPersonAsync(
                     personId,
                     dbDocuments,
-                    responses,
+                    checks,
                     stoppingToken);
 
                 _logger.LogInformation(
@@ -107,5 +99,7 @@ public sealed class ValidationWorker : BackgroundService
         }
 
         _logger.LogInformation("FINISH validation");
+
+        _lifetime.StopApplication();
     }
 }
