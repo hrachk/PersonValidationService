@@ -18,4 +18,16 @@
     <Folder Include="Input\" />
     <Folder Include="Output\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- PersonValidationService.Web lives in a subfolder of this project's
+         directory. Without this, default SDK globbing would also compile
+         its Program.cs/Services and (after it's built once) its generated
+         obj/**/*.AssemblyInfo.cs, causing duplicate assembly attributes and
+         missing-namespace errors here. -->
+    <Compile Remove="PersonValidationService.Web\**" />
+    <Content Remove="PersonValidationService.Web\**" />
+    <None Remove="PersonValidationService.Web\**" />
+    <EmbeddedResource Remove="PersonValidationService.Web\**" />
+  </ItemGroup>
 </Project>
