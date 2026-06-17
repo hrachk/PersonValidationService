@@ -1,0 +1,221 @@
+@page "/"
+@inject DecisionReportService ReportService
+@implements IDisposable
+
+<div class="dashboard">
+
+    <div class="stats-row">
+        <div class="stat-card stat-total">
+            <span class="stat-value">@_all.Count</span>
+            <span class="stat-label">Всего проверок</span>
+        </div>
+        <div class="stat-card status-valid">
+            <span class="stat-value">@GetCount("VALID")</span>
+            <span class="stat-label">Valid</span>
+        </div>
+        <div class="stat-card status-mismatch">
+            <span class="stat-value">@GetCount("MISMATCH")</span>
+            <span class="stat-label">Mismatch</span>
+        </div>
+        <div class="stat-card status-ambiguous">
+            <span class="stat-value">@GetCount("AMBIGUOUS")</span>
+            <span class="stat-label">Ambiguous</span>
+        </div>
+        <div class="stat-card status-no-ssn">
+            <span class="stat-value">@(GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB"))</span>
+            <span class="stat-label">No SSN / No docs</span>
+        </div>
+        <div class="stat-card status-invalid">
+            <span class="stat-value">@(GetCount("INVALID") + GetCount("ERROR"))</span>
+            <span class="stat-label">Invalid / Error</span>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <input class="search-input"
+               placeholder="Поиск: PersonId, SSN, паспорт..."
+               value="@_search"
+               @oninput="OnSearchChanged" />
+
+        <select class="status-select" value="@_statusFilter" @onchange="OnStatusFilterChanged">
+            <option value="ALL">Все статусы</option>
+            <option value="VALID">VALID</option>
+            <option value="MISMATCH">MISMATCH</option>
+            <option value="AMBIGUOUS">AMBIGUOUS</option>
+            <option value="NO_SSN">NO_SSN</option>
+            <option value="INVALID">INVALID</option>
+            <option value="ERROR">ERROR</option>
+            <option value="NO_DOCUMENTS_IN_DB">NO_DOCUMENTS_IN_DB</option>
+        </select>
+
+        <button class="refresh-btn" @onclick="Refresh">⟲ Обновить</button>
+
+        <label class="auto-refresh-toggle">
+            <input type="checkbox" checked="@_autoRefresh" @onchange="OnAutoRefreshChanged" />
+            Авто-обновление
+        </label>
+
+        <span class="last-loaded">Обновлено: @_lastLoaded.ToString("HH:mm:ss")</span>
+    </div>
+
+    <div class="decision-list">
+        @if (!Filtered.Any())
+        {
+            <div class="empty-state">Нет данных по заданным условиям.</div>
+        }
+        @foreach (var decision in Filtered)
+        {
+            var isExpanded = _expanded.Contains(decision.PersonId);
+            var statusClass = StatusClass(decision.Status);
+
+            <div class="decision-card @statusClass">
+                <div class="decision-header" @onclick="() => ToggleExpand(decision.PersonId)">
+                    <div class="decision-person">
+                        <span class="person-id">#@decision.PersonId</span>
+                        <span class="status-badge @statusClass">@decision.Status</span>
+                    </div>
+
+                    <div class="decision-summary">
+                        @if (!string.IsNullOrWhiteSpace(decision.SelectedSsn))
+                        {
+                            <span class="ssn-value">SSN: @decision.SelectedSsn</span>
+                        }
+                        else if (decision.SsnCandidates.Count > 0)
+                        {
+                            <span class="ssn-candidates">Кандидаты: @string.Join(", ", decision.SsnCandidates)</span>
+                        }
+                        <span class="reason-text">@decision.Reason</span>
+                    </div>
+
+                    <span class="expand-icon">@(isExpanded ? "▲" : "▼")</span>
+                </div>
+
+                @if (isExpanded)
+                {
+                    <div class="decision-body">
+                        <table class="checks-table">
+                            <thead>
+                                <tr>
+                                    <th>Паспорт</th>
+                                    <th>Match</th>
+                                    <th>SSN</th>
+                                    <th>DB документы</th>
+                                    <th>BPR документы</th>
+                                    <th>Ошибка</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var check in decision.Checks)
+                                {
+                                    <tr>
+                                        <td>@check.Passport</td>
+                                        <td>
+                                            <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
+                                                @(check.DocumentsMatch ? "✓" : "✗")
+                                            </span>
+                                        </td>
+                                        <td>@(check.Ssn ?? "—")</td>
+                                        <td>@string.Join(", ", check.DbDocuments)</td>
+                                        <td>@(check.BprDocuments.Count > 0 ? string.Join(", ", check.BprDocuments) : "—")</td>
+                                        <td class="error-cell">@(check.Error ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<ValidationDecision> _all = [];
+    private string _search = "";
+    private string _statusFilter = "ALL";
+    private readonly HashSet<long> _expanded = [];
+    private Timer? _autoRefreshTimer;
+    private bool _autoRefresh = true;
+    private DateTime _lastLoaded = DateTime.Now;
+
+    protected override void OnInitialized()
+    {
+        Load();
+
+        _autoRefreshTimer = new Timer(
+            _ =>
+            {
+                if (_autoRefresh)
+                {
+                    _ = InvokeAsync(() =>
+                    {
+                        Load();
+                        StateHasChanged();
+                    });
+                }
+            },
+            null,
+            TimeSpan.FromSeconds(8),
+            TimeSpan.FromSeconds(8));
+    }
+
+    private void Load()
+    {
+        _all = ReportService.ReadAll();
+        _lastLoaded = DateTime.Now;
+    }
+
+    private void Refresh() => Load();
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+    }
+
+    private void OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        _statusFilter = e.Value?.ToString() ?? "ALL";
+    }
+
+    private void OnAutoRefreshChanged(ChangeEventArgs e)
+    {
+        _autoRefresh = e.Value is bool b && b;
+    }
+
+    private IEnumerable<ValidationDecision> Filtered =>
+        _all
+            .Where(d => _statusFilter == "ALL" || d.Status == _statusFilter)
+            .Where(d =>
+                string.IsNullOrWhiteSpace(_search) ||
+                d.PersonId.ToString().Contains(_search) ||
+                (d.SelectedSsn?.Contains(_search) ?? false) ||
+                d.Checks.Any(c => c.Passport.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(d => d.PersonId);
+
+    private int GetCount(string status) => _all.Count(d => d.Status == status);
+
+    private void ToggleExpand(long personId)
+    {
+        if (!_expanded.Add(personId))
+        {
+            _expanded.Remove(personId);
+        }
+    }
+
+    private static string StatusClass(string status) => status switch
+    {
+        "VALID" => "status-valid",
+        "MISMATCH" => "status-mismatch",
+        "AMBIGUOUS" => "status-ambiguous",
+        "NO_SSN" => "status-no-ssn",
+        "INVALID" => "status-invalid",
+        "ERROR" => "status-error",
+        "NO_DOCUMENTS_IN_DB" => "status-no-docs",
+        _ => "status-unknown"
+    };
+
+    public void Dispose()
+    {
+        _autoRefreshTimer?.Dispose();
+    }
+}
