@@ -66,12 +66,14 @@
         @foreach (var decision in Filtered)
         {
             var isExpanded = _expanded.Contains(decision.PersonId);
-            var statusClass = StatusClass(decision.Status);
+            var statusClass = StatusPresentation.ToCssClass(decision.Status);
 
             <div class="decision-card @statusClass">
                 <div class="decision-header" @onclick="() => ToggleExpand(decision.PersonId)">
                     <div class="decision-person">
-                        <span class="person-id">#@decision.PersonId</span>
+                        <a class="person-id"
+                           href="@($"/person/{decision.PersonId}")"
+                           @onclick:stopPropagation="true">#@decision.PersonId</a>
                         <span class="status-badge @statusClass">@decision.Status</span>
                     </div>
 
@@ -201,18 +203,6 @@
             _expanded.Remove(personId);
         }
     }
-
-    private static string StatusClass(string status) => status switch
-    {
-        "VALID" => "status-valid",
-        "MISMATCH" => "status-mismatch",
-        "AMBIGUOUS" => "status-ambiguous",
-        "NO_SSN" => "status-no-ssn",
-        "INVALID" => "status-invalid",
-        "ERROR" => "status-error",
-        "NO_DOCUMENTS_IN_DB" => "status-no-docs",
-        _ => "status-unknown"
-    };
 
     public void Dispose()
     {

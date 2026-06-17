@@ -9,6 +9,7 @@
     --green: #0ecb81;
     --red: #f6465d;
     --purple: #8b5cf6;
+    --blue: #3b82f6;
     --grey: #5e6673;
     --radius: 10px;
 }
@@ -267,6 +268,13 @@ html, body {
 .person-id {
     font-size: 17px;
     font-weight: 700;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.person-id:hover {
+    color: var(--accent-gold);
+    text-decoration: underline;
 }
 
 .status-badge {
@@ -388,5 +396,218 @@ html, body {
 
     .decision-person {
         min-width: 140px;
+    }
+}
+
+/* ---- detail page ---- */
+
+.detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.back-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    align-self: flex-start;
+}
+
+.back-link:hover {
+    color: var(--text-primary);
+}
+
+.detail-header {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-left: 4px solid var(--grey);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detail-header.status-valid {
+    border-left-color: var(--green);
+}
+
+.detail-header.status-mismatch {
+    border-left-color: var(--accent-gold);
+}
+
+.detail-header.status-ambiguous {
+    border-left-color: var(--purple);
+}
+
+.detail-header.status-no-ssn,
+.detail-header.status-no-docs {
+    border-left-color: var(--grey);
+}
+
+.detail-header.status-invalid,
+.detail-header.status-error {
+    border-left-color: var(--red);
+}
+
+.detail-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.person-id-large {
+    font-size: 26px;
+    font-weight: 800;
+}
+
+.detail-ssn {
+    font-size: 16px;
+    color: var(--green);
+}
+
+.detail-ssn-candidates {
+    font-size: 15px;
+    color: var(--accent-gold);
+}
+
+.detail-reason {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.detail-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.mini-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mini-value {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.mini-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.section-title {
+    font-size: 16px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.check-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    border-left: 4px solid var(--red);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.check-card.check-ok {
+    border-left-color: var(--green);
+}
+
+.check-card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.check-passport {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.check-ssn {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.check-error {
+    color: var(--red);
+    font-size: 14px;
+}
+
+.doc-compare {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.doc-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-column-title {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.doc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.doc-chip {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.chip-common {
+    background: rgba(14, 203, 129, 0.15);
+    color: var(--green);
+}
+
+.chip-db-only {
+    background: rgba(240, 185, 11, 0.15);
+    color: var(--accent-gold);
+}
+
+.chip-bpr-only {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--blue);
+}
+
+.doc-empty {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .doc-compare {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-stats {
+        grid-template-columns: 1fr;
     }
 }

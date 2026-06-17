@@ -1,0 +1,140 @@
+@page "/person/{PersonId:long}"
+@inject DecisionReportService ReportService
+
+<div class="detail-page">
+    <a class="back-link" href="/">← Назад к списку</a>
+
+    @if (_decision is null)
+    {
+        <div class="empty-state">Запись для PersonId=@PersonId не найдена в отчёте.</div>
+    }
+    else
+    {
+        var statusClass = StatusPresentation.ToCssClass(_decision.Status);
+
+        <div class="detail-header @statusClass">
+            <div class="detail-title">
+                <span class="person-id-large">#@_decision.PersonId</span>
+                <span class="status-badge @statusClass">@_decision.Status</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_decision.SelectedSsn))
+            {
+                <div class="detail-ssn">SSN: <strong>@_decision.SelectedSsn</strong></div>
+            }
+            else if (_decision.SsnCandidates.Count > 0)
+            {
+                <div class="detail-ssn-candidates">Кандидаты SSN: @string.Join(", ", _decision.SsnCandidates)</div>
+            }
+
+            <div class="detail-reason">@_decision.Reason</div>
+        </div>
+
+        <div class="detail-stats">
+            <div class="mini-stat">
+                <span class="mini-value">@_decision.Checks.Count</span>
+                <span class="mini-label">Паспортов проверено</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-value">@_decision.Checks.Count(c => c.DocumentsMatch)</span>
+                <span class="mini-label">Совпадений документов</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-value">@_decision.Checks.Count(c => c.Error != null)</span>
+                <span class="mini-label">Ошибок API</span>
+            </div>
+        </div>
+
+        <h3 class="section-title">Детали по паспортам</h3>
+
+        @foreach (var check in _decision.Checks)
+        {
+            var onlyInDb = check.DbDocuments
+                .Except(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var onlyInBpr = check.BprDocuments
+                .Except(check.DbDocuments, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var common = check.DbDocuments
+                .Intersect(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            <div class="check-card @(check.DocumentsMatch ? "check-ok" : "")">
+                <div class="check-card-header">
+                    <span class="check-passport">@check.Passport</span>
+                    <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
+                        @(check.DocumentsMatch ? "✓ Документы совпадают" : "✗ Несовпадение документов")
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(check.Ssn))
+                    {
+                        <span class="check-ssn">SSN: @check.Ssn</span>
+                    }
+                </div>
+
+                @if (check.Error != null)
+                {
+                    <div class="check-error">Ошибка: @check.Error</div>
+                }
+                else
+                {
+                    <div class="doc-compare">
+                        <div class="doc-column">
+                            <span class="doc-column-title">Совпадают (@common.Count)</span>
+                            <div class="doc-chips">
+                                @foreach (var d in common)
+                                {
+                                    <span class="doc-chip chip-common">@d</span>
+                                }
+                                @if (common.Count == 0)
+                                {
+                                    <span class="doc-empty">—</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="doc-column">
+                            <span class="doc-column-title">Только в БД (@onlyInDb.Count)</span>
+                            <div class="doc-chips">
+                                @foreach (var d in onlyInDb)
+                                {
+                                    <span class="doc-chip chip-db-only">@d</span>
+                                }
+                                @if (onlyInDb.Count == 0)
+                                {
+                                    <span class="doc-empty">—</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="doc-column">
+                            <span class="doc-column-title">Только в BPR (@onlyInBpr.Count)</span>
+                            <div class="doc-chips">
+                                @foreach (var d in onlyInBpr)
+                                {
+                                    <span class="doc-chip chip-bpr-only">@d</span>
+                                }
+                                @if (onlyInBpr.Count == 0)
+                                {
+                                    <span class="doc-empty">—</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public long PersonId { get; set; }
+
+    private ValidationDecision? _decision;
+
+    protected override void OnParametersSet()
+    {
+        _decision = ReportService.ReadAll()
+            .FirstOrDefault(d => d.PersonId == PersonId);
+    }
+}
