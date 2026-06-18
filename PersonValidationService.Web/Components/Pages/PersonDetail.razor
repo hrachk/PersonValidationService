@@ -15,7 +15,10 @@
         <div class="detail-header @statusClass">
             <div class="detail-title">
                 <span class="person-id-large">#@_decision.PersonId</span>
-                <span class="status-badge @statusClass">@_decision.Status</span>
+                <span class="status-badge @statusClass">
+                    <span class="status-icon">@StatusPresentation.ToIcon(_decision.Status)</span>
+                    @_decision.Status
+                </span>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(_decision.SelectedSsn))

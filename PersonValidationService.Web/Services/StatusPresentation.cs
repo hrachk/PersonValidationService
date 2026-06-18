@@ -13,4 +13,16 @@ public static class StatusPresentation
         "NO_DOCUMENTS_IN_DB" => "status-no-docs",
         _ => "status-unknown"
     };
+
+    public static string ToIcon(string status) => status switch
+    {
+        "VALID" => "✓",
+        "MISMATCH" => "✗",
+        "AMBIGUOUS" => "❓",
+        "NO_SSN" => "∅",
+        "INVALID" => "⊘",
+        "ERROR" => "⚠",
+        "NO_DOCUMENTS_IN_DB" => "📄",
+        _ => "•"
+    };
 }

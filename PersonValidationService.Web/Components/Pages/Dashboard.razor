@@ -5,48 +5,57 @@
 <div class="dashboard">
 
     <div class="stats-row">
-        <div class="stat-card stat-total">
+        <div class="stat-card stat-total @(_filterGroup == "ALL" ? "active" : "")" @onclick="() => SetFilterGroup(\"ALL\")">
             <span class="stat-value">@_all.Count</span>
             <span class="stat-label">Всего проверок</span>
         </div>
-        <div class="stat-card status-valid">
+        <div class="stat-card status-valid @(_filterGroup == "VALID" ? "active" : "")" @onclick="() => SetFilterGroup(\"VALID\")">
             <span class="stat-value">@GetCount("VALID")</span>
             <span class="stat-label">Valid</span>
         </div>
-        <div class="stat-card status-mismatch">
+        <div class="stat-card status-mismatch @(_filterGroup == "MISMATCH" ? "active" : "")" @onclick="() => SetFilterGroup(\"MISMATCH\")">
             <span class="stat-value">@GetCount("MISMATCH")</span>
             <span class="stat-label">Mismatch</span>
         </div>
-        <div class="stat-card status-ambiguous">
+        <div class="stat-card status-ambiguous @(_filterGroup == "AMBIGUOUS" ? "active" : "")" @onclick="() => SetFilterGroup(\"AMBIGUOUS\")">
             <span class="stat-value">@GetCount("AMBIGUOUS")</span>
             <span class="stat-label">Ambiguous</span>
         </div>
-        <div class="stat-card status-no-ssn">
+        <div class="stat-card status-no-ssn @(_filterGroup == "NO_DATA" ? "active" : "")" @onclick="() => SetFilterGroup(\"NO_DATA\")">
             <span class="stat-value">@(GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB"))</span>
             <span class="stat-label">No SSN / No docs</span>
         </div>
-        <div class="stat-card status-invalid">
+        <div class="stat-card status-invalid @(_filterGroup == "PROBLEM" ? "active" : "")" @onclick="() => SetFilterGroup(\"PROBLEM\")">
             <span class="stat-value">@(GetCount("INVALID") + GetCount("ERROR"))</span>
             <span class="stat-label">Invalid / Error</span>
         </div>
     </div>
+
+    @if (_all.Count > 0)
+    {
+        <div class="status-bar" title="Распределение статусов">
+            @foreach (var seg in StatusSegments)
+            {
+                <div class="status-bar-segment @seg.CssClass"
+                     style="width:@(seg.WidthPercentCss)%"
+                     title="@seg.Tooltip"></div>
+            }
+        </div>
+    }
+
+    @if (_newSinceLastView > 0)
+    {
+        <div class="new-records-banner" @onclick="DismissNewBanner">
+            <span>🆕 +@_newSinceLastView нов@(_newSinceLastView == 1 ? "ая запись" : "ых записей") с последнего просмотра</span>
+            <span class="dismiss-hint">нажмите, чтобы скрыть</span>
+        </div>
+    }
 
     <div class="toolbar">
         <input class="search-input"
                placeholder="Поиск: PersonId, SSN, паспорт..."
                value="@_search"
                @oninput="OnSearchChanged" />
-
-        <select class="status-select" value="@_statusFilter" @onchange="OnStatusFilterChanged">
-            <option value="ALL">Все статусы</option>
-            <option value="VALID">VALID</option>
-            <option value="MISMATCH">MISMATCH</option>
-            <option value="AMBIGUOUS">AMBIGUOUS</option>
-            <option value="NO_SSN">NO_SSN</option>
-            <option value="INVALID">INVALID</option>
-            <option value="ERROR">ERROR</option>
-            <option value="NO_DOCUMENTS_IN_DB">NO_DOCUMENTS_IN_DB</option>
-        </select>
 
         <button class="refresh-btn" @onclick="Refresh">⟲ Обновить</button>
 
@@ -59,28 +68,39 @@
     </div>
 
     <div class="decision-list">
-        @if (!Filtered.Any())
+        @if (!_filteredCache.Any())
         {
             <div class="empty-state">Нет данных по заданным условиям.</div>
         }
-        @foreach (var decision in Filtered)
+        @foreach (var decision in PagedItems)
         {
             var isExpanded = _expanded.Contains(decision.PersonId);
             var statusClass = StatusPresentation.ToCssClass(decision.Status);
+            var linkedCount = decision.LinkedPersonIds.Count(id => id != decision.PersonId);
 
             <div class="decision-card @statusClass">
                 <div class="decision-header" @onclick="() => ToggleExpand(decision.PersonId)">
                     <div class="decision-person">
                         <a class="person-id"
                            href="@($"/person/{decision.PersonId}")"
-                           @onclick:stopPropagation="true">#@decision.PersonId</a>
-                        <span class="status-badge @statusClass">@decision.Status</span>
+                           @onclick:stopPropagation="true">#@((MarkupString)HighlightText(decision.PersonId.ToString()))</a>
+                        <span class="status-badge @statusClass">
+                            <span class="status-icon">@StatusPresentation.ToIcon(decision.Status)</span>
+                            @decision.Status
+                        </span>
+                        @if (linkedCount > 0)
+                        {
+                            <span class="linked-badge"
+                                  title="@($"Связан с PersonId: {string.Join(", ", decision.LinkedPersonIds.Where(id => id != decision.PersonId))}")">
+                                🔗 @linkedCount
+                            </span>
+                        }
                     </div>
 
                     <div class="decision-summary">
                         @if (!string.IsNullOrWhiteSpace(decision.SelectedSsn))
                         {
-                            <span class="ssn-value">SSN: @decision.SelectedSsn</span>
+                            <span class="ssn-value">SSN: @((MarkupString)HighlightText(decision.SelectedSsn))</span>
                         }
                         else if (decision.SsnCandidates.Count > 0)
                         {
@@ -92,8 +112,7 @@
                     <span class="expand-icon">@(isExpanded ? "▲" : "▼")</span>
                 </div>
 
-                @if (isExpanded)
-                {
+                <div class="decision-body-wrapper @(isExpanded ? "expanded" : "")">
                     <div class="decision-body">
                         <table class="checks-table">
                             <thead>
@@ -110,7 +129,7 @@
                                 @foreach (var check in decision.Checks)
                                 {
                                     <tr>
-                                        <td>@check.Passport</td>
+                                        <td>@((MarkupString)HighlightText(check.Passport))</td>
                                         <td>
                                             <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
                                                 @(check.DocumentsMatch ? "✓" : "✗")
@@ -125,24 +144,50 @@
                             </tbody>
                         </table>
                     </div>
-                }
+                </div>
+            </div>
+        }
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="page-btn" disabled="@(_page <= 1)" @onclick="() => GoToPage(_page - 1)">‹ Назад</button>
+                <span class="page-info">Стр. @_page из @TotalPages · @_filteredCache.Count записей</span>
+                <button class="page-btn" disabled="@(_page >= TotalPages)" @onclick="() => GoToPage(_page + 1)">Вперёд ›</button>
             </div>
         }
     </div>
 </div>
 
 @code {
+    private const int PageSize = 25;
+
     private List<ValidationDecision> _all = [];
+    private List<ValidationDecision> _filteredCache = [];
+    private HashSet<long> _knownPersonIds = [];
+    private int _newSinceLastView = 0;
+    private bool _isFirstLoad = true;
+
     private string _search = "";
-    private string _statusFilter = "ALL";
+    private string _filterGroup = "ALL";
     private readonly HashSet<long> _expanded = [];
     private Timer? _autoRefreshTimer;
     private bool _autoRefresh = true;
     private DateTime _lastLoaded = DateTime.Now;
+    private int _page = 1;
+
+    private static readonly HashSet<string> ProblemStatuses = ["INVALID", "ERROR"];
+    private static readonly HashSet<string> NoDataStatuses = ["NO_SSN", "NO_DOCUMENTS_IN_DB"];
+
+    private record StatusSegment(string CssClass, string Label, int Count, double Percent)
+    {
+        public string WidthPercentCss => Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        public string Tooltip => $"{Label}: {Count} ({Percent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%)";
+    }
 
     protected override void OnInitialized()
     {
-        Load();
+        Load(isAutoRefresh: false);
 
         _autoRefreshTimer = new Timer(
             _ =>
@@ -151,7 +196,7 @@
                 {
                     _ = InvokeAsync(() =>
                     {
-                        Load();
+                        Load(isAutoRefresh: true);
                         StateHasChanged();
                     });
                 }
@@ -161,22 +206,48 @@
             TimeSpan.FromSeconds(8));
     }
 
-    private void Load()
+    private void Load(bool isAutoRefresh)
     {
-        _all = ReportService.ReadAll();
+        var fresh = ReportService.ReadAll();
+
+        if (!_isFirstLoad)
+        {
+            var freshIds = fresh.Select(d => d.PersonId).ToHashSet();
+            var newCount = freshIds.Except(_knownPersonIds).Count();
+            if (isAutoRefresh && newCount > 0)
+            {
+                _newSinceLastView += newCount;
+            }
+        }
+
+        _all = fresh;
+        _knownPersonIds = fresh.Select(d => d.PersonId).ToHashSet();
         _lastLoaded = DateTime.Now;
+        _isFirstLoad = false;
+
+        RecomputeFiltered();
     }
 
-    private void Refresh() => Load();
+    private void Refresh()
+    {
+        Load(isAutoRefresh: false);
+        _newSinceLastView = 0;
+    }
+
+    private void DismissNewBanner() => _newSinceLastView = 0;
 
     private void OnSearchChanged(ChangeEventArgs e)
     {
         _search = e.Value?.ToString() ?? "";
+        _page = 1;
+        RecomputeFiltered();
     }
 
-    private void OnStatusFilterChanged(ChangeEventArgs e)
+    private void SetFilterGroup(string group)
     {
-        _statusFilter = e.Value?.ToString() ?? "ALL";
+        _filterGroup = group;
+        _page = 1;
+        RecomputeFiltered();
     }
 
     private void OnAutoRefreshChanged(ChangeEventArgs e)
@@ -184,17 +255,88 @@
         _autoRefresh = e.Value is bool b && b;
     }
 
-    private IEnumerable<ValidationDecision> Filtered =>
-        _all
-            .Where(d => _statusFilter == "ALL" || d.Status == _statusFilter)
+    private bool MatchesGroup(ValidationDecision d) => _filterGroup switch
+    {
+        "ALL" => true,
+        "VALID" => d.Status == "VALID",
+        "MISMATCH" => d.Status == "MISMATCH",
+        "AMBIGUOUS" => d.Status == "AMBIGUOUS",
+        "NO_DATA" => NoDataStatuses.Contains(d.Status),
+        "PROBLEM" => ProblemStatuses.Contains(d.Status),
+        _ => true
+    };
+
+    private void RecomputeFiltered()
+    {
+        _filteredCache = _all
+            .Where(MatchesGroup)
             .Where(d =>
                 string.IsNullOrWhiteSpace(_search) ||
                 d.PersonId.ToString().Contains(_search) ||
                 (d.SelectedSsn?.Contains(_search) ?? false) ||
                 d.Checks.Any(c => c.Passport.Contains(_search, StringComparison.OrdinalIgnoreCase)))
-            .OrderByDescending(d => d.PersonId);
+            .OrderByDescending(d => d.PersonId)
+            .ToList();
+
+        var maxPage = Math.Max(1, (int)Math.Ceiling(_filteredCache.Count / (double)PageSize));
+        if (_page > maxPage) _page = maxPage;
+    }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(_filteredCache.Count / (double)PageSize));
+
+    private IEnumerable<ValidationDecision> PagedItems =>
+        _filteredCache.Skip((_page - 1) * PageSize).Take(PageSize);
+
+    private void GoToPage(int page)
+    {
+        _page = Math.Clamp(page, 1, TotalPages);
+    }
 
     private int GetCount(string status) => _all.Count(d => d.Status == status);
+
+    private IEnumerable<StatusSegment> StatusSegments
+    {
+        get
+        {
+            if (_all.Count == 0)
+                yield break;
+
+            var groups = new[]
+            {
+                ("status-valid", "Valid", GetCount("VALID")),
+                ("status-mismatch", "Mismatch", GetCount("MISMATCH")),
+                ("status-ambiguous", "Ambiguous", GetCount("AMBIGUOUS")),
+                ("status-no-ssn", "No SSN/Docs", GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB")),
+                ("status-invalid", "Invalid/Error", GetCount("INVALID") + GetCount("ERROR")),
+            };
+
+            foreach (var (cls, label, count) in groups)
+            {
+                if (count == 0) continue;
+                yield return new StatusSegment(cls, label, count, count * 100.0 / _all.Count);
+            }
+        }
+    }
+
+    private string HighlightText(string? text)
+    {
+        text ??= "";
+        var encoded = System.Net.WebUtility.HtmlEncode(text);
+
+        if (string.IsNullOrWhiteSpace(_search))
+            return encoded;
+
+        var encodedSearch = System.Net.WebUtility.HtmlEncode(_search);
+        var idx = encoded.IndexOf(encodedSearch, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return encoded;
+
+        var before = encoded[..idx];
+        var match = encoded.Substring(idx, encodedSearch.Length);
+        var after = encoded[(idx + encodedSearch.Length)..];
+
+        return $"{before}<mark class=\"search-highlight\">{match}</mark>{after}";
+    }
 
     private void ToggleExpand(long personId)
     {

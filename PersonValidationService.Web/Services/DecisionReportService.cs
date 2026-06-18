@@ -66,7 +66,17 @@ public sealed class DecisionReportService
 
         try
         {
-            return JsonSerializer.Deserialize<List<ValidationDecision>>(joined) ?? [];
+            var list = JsonSerializer.Deserialize<List<ValidationDecision>>(joined) ?? [];
+
+            // decisions.json is append-only. If a PersonId is ever
+            // processed more than once (re-run, manual re-validation),
+            // keep only the most recent entry for it — GroupBy preserves
+            // original (chronological) order within each group, so .Last()
+            // is the freshest decision.
+            return list
+                .GroupBy(d => d.PersonId)
+                .Select(g => g.Last())
+                .ToList();
         }
         catch (JsonException ex)
         {
