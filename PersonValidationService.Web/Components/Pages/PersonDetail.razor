@@ -27,6 +27,14 @@
                 <div class="detail-ssn-candidates">Кандидаты SSN: @string.Join(", ", _decision.SsnCandidates)</div>
             }
 
+            @if (_decision.LinkedPersonIds.Count(id => id != _decision.PersonId) > 0)
+            {
+                <div class="detail-linked-ids">
+                    Связанные PersonId (тот же человек, по совпадающему паспорту):
+                    @string.Join(", ", _decision.LinkedPersonIds.Where(id => id != _decision.PersonId))
+                </div>
+            }
+
             <div class="detail-reason">@_decision.Reason</div>
         </div>
 

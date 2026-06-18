@@ -472,6 +472,12 @@ html, body {
     color: var(--accent-gold);
 }
 
+.detail-linked-ids {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 .detail-reason {
     font-size: 14px;
     color: var(--text-secondary);

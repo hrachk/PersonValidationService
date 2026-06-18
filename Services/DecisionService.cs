@@ -23,13 +23,15 @@ public sealed class DecisionService
 
     public async Task ProcessPersonAsync(
         long personId,
+        List<long> linkedPersonIds,
         List<string> dbDocuments,
         List<(string Passport, ValidatorResponse? Response, string? Error)> checks,
         CancellationToken ct)
     {
         var decision = new ValidationDecision
         {
-            PersonId = personId
+            PersonId = personId,
+            LinkedPersonIds = linkedPersonIds
         };
 
         if (dbDocuments.Count == 0)
@@ -94,8 +96,8 @@ public sealed class DecisionService
 
         if (decision.Status == "VALID" && decision.SelectedSsn != null)
         {
-            await _personRepository.UpdateSocialCardAsync(
-                personId,
+            await _personRepository.UpdateSocialCardForGroupAsync(
+                linkedPersonIds.Count > 0 ? linkedPersonIds : [personId],
                 decision.SelectedSsn,
                 ct);
         }
