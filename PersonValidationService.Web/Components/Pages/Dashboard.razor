@@ -5,27 +5,27 @@
 <div class="dashboard">
 
     <div class="stats-row">
-        <div class="stat-card stat-total @(_filterGroup == "ALL" ? "active" : "")" @onclick="() => SetFilterGroup(\"ALL\")">
+        <div class="stat-card stat-total @(_filterGroup == "ALL" ? "active" : "")" @onclick='() => SetFilterGroup("ALL")'>
             <span class="stat-value">@_all.Count</span>
             <span class="stat-label">Всего проверок</span>
         </div>
-        <div class="stat-card status-valid @(_filterGroup == "VALID" ? "active" : "")" @onclick="() => SetFilterGroup(\"VALID\")">
+        <div class="stat-card status-valid @(_filterGroup == "VALID" ? "active" : "")" @onclick='() => SetFilterGroup("VALID")'>
             <span class="stat-value">@GetCount("VALID")</span>
             <span class="stat-label">Valid</span>
         </div>
-        <div class="stat-card status-mismatch @(_filterGroup == "MISMATCH" ? "active" : "")" @onclick="() => SetFilterGroup(\"MISMATCH\")">
+        <div class="stat-card status-mismatch @(_filterGroup == "MISMATCH" ? "active" : "")" @onclick='() => SetFilterGroup("MISMATCH")'>
             <span class="stat-value">@GetCount("MISMATCH")</span>
             <span class="stat-label">Mismatch</span>
         </div>
-        <div class="stat-card status-ambiguous @(_filterGroup == "AMBIGUOUS" ? "active" : "")" @onclick="() => SetFilterGroup(\"AMBIGUOUS\")">
+        <div class="stat-card status-ambiguous @(_filterGroup == "AMBIGUOUS" ? "active" : "")" @onclick='() => SetFilterGroup("AMBIGUOUS")'>
             <span class="stat-value">@GetCount("AMBIGUOUS")</span>
             <span class="stat-label">Ambiguous</span>
         </div>
-        <div class="stat-card status-no-ssn @(_filterGroup == "NO_DATA" ? "active" : "")" @onclick="() => SetFilterGroup(\"NO_DATA\")">
+        <div class="stat-card status-no-ssn @(_filterGroup == "NO_DATA" ? "active" : "")" @onclick='() => SetFilterGroup("NO_DATA")'>
             <span class="stat-value">@(GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB"))</span>
             <span class="stat-label">No SSN / No docs</span>
         </div>
-        <div class="stat-card status-invalid @(_filterGroup == "PROBLEM" ? "active" : "")" @onclick="() => SetFilterGroup(\"PROBLEM\")">
+        <div class="stat-card status-invalid @(_filterGroup == "PROBLEM" ? "active" : "")" @onclick='() => SetFilterGroup("PROBLEM")'>
             <span class="stat-value">@(GetCount("INVALID") + GetCount("ERROR"))</span>
             <span class="stat-label">Invalid / Error</span>
         </div>
