@@ -6,9 +6,11 @@ public sealed class Person
 
     public string? SocialCard { get; set; }
 
-    public string? FirstName { get; set; }
+    /// <summary>FK into DicFirstNames.FirstNameID — not the name text itself.</summary>
+    public int? FirstNameId { get; set; }
 
-    public string? LastName { get; set; }
+    /// <summary>FK into DicLastNames.LastNameID — not the name text itself.</summary>
+    public int? LastNameId { get; set; }
 
     public DateTime? BirthDate { get; set; }
 }

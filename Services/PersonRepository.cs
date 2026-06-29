@@ -32,6 +32,8 @@ public sealed class PersonRepository
     /// <summary>
     /// Fetches the identity fields (FirstName/LastName/BirthDate) we have
     /// on file for a PersonId, to compare against what BPR returns.
+    /// Persons.FirstName/LastName are FK ids into DicFirstNames/DicLastNames,
+    /// not text, so this resolves the actual name strings via a join.
     /// </summary>
     public async Task<(string? FirstName, string? LastName, DateTime? BirthDate)?> GetPersonIdentityAsync(
         long personId,
@@ -40,14 +42,57 @@ public sealed class PersonRepository
         await using var db =
             await _contextFactory.CreateDbContextAsync(ct);
 
-        var person = await db.Persons
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.PersonId == personId, ct);
+        var query =
+            from p in db.Persons.AsNoTracking()
+            where p.PersonId == personId
+            join fn in db.DicFirstNames.AsNoTracking()
+                on p.FirstNameId equals fn.FirstNameId into fnJoin
+            from fn in fnJoin.DefaultIfEmpty()
+            join ln in db.DicLastNames.AsNoTracking()
+                on p.LastNameId equals ln.LastNameId into lnJoin
+            from ln in lnJoin.DefaultIfEmpty()
+            select new
+            {
+                FirstName = fn == null ? null : fn.FirstName,
+                LastName = ln == null ? null : ln.LastName,
+                p.BirthDate
+            };
 
-        if (person == null)
+        var row = await query.FirstOrDefaultAsync(ct);
+
+        if (row == null)
             return null;
 
-        return (person.FirstName, person.LastName, person.BirthDate);
+        return (
+            FixLatin1Mojibake(row.FirstName),
+            FixLatin1Mojibake(row.LastName),
+            row.BirthDate);
+    }
+
+    /// <summary>
+    /// DicFirstNames/DicLastNames are declared latin1 charset but actually
+    /// store UTF-8 encoded Armenian text byte-for-byte under that wrong
+    /// charset tag (a long-standing, very common MySQL data-entry bug). The
+    /// connector hands back a .NET string where each char (0-255) is one
+    /// original raw byte — re-pack those chars as bytes and decode as UTF-8
+    /// to recover the real text.
+    /// </summary>
+    private static string? FixLatin1Mojibake(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        try
+        {
+            var bytes = System.Text.Encoding.Latin1.GetBytes(value);
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            // Not actually mismatched bytes (e.g. already-correct ASCII) —
+            // fall back to the original rather than risk corrupting it.
+            return value;
+        }
     }
 
     /// <summary>

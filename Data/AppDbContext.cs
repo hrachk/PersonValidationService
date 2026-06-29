@@ -13,6 +13,11 @@ public sealed class AppDbContext : DbContext
     public DbSet<Passport> Passports => Set<Passport>();
 
     public DbSet<Person> Persons => Set<Person>();
+
+    public DbSet<DicFirstName> DicFirstNames => Set<DicFirstName>();
+
+    public DbSet<DicLastName> DicLastNames => Set<DicLastName>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Passport>(entity =>
@@ -43,14 +48,42 @@ public sealed class AppDbContext : DbContext
             entity.Property(x => x.SocialCard)
                 .HasColumnName("SocialCard");
 
-            entity.Property(x => x.FirstName)
+            // FirstName/LastName columns on Persons are int FKs into the
+            // dictionary tables below, NOT the name text itself.
+            entity.Property(x => x.FirstNameId)
                 .HasColumnName("FirstName");
 
-            entity.Property(x => x.LastName)
+            entity.Property(x => x.LastNameId)
                 .HasColumnName("LastName");
 
             entity.Property(x => x.BirthDate)
                 .HasColumnName("BirthDate");
+        });
+
+        modelBuilder.Entity<DicFirstName>(entity =>
+        {
+            entity.ToTable("DicFirstNames");
+
+            entity.HasKey(x => x.FirstNameId);
+
+            entity.Property(x => x.FirstNameId)
+                .HasColumnName("FirstNameID");
+
+            entity.Property(x => x.FirstName)
+                .HasColumnName("FirstName");
+        });
+
+        modelBuilder.Entity<DicLastName>(entity =>
+        {
+            entity.ToTable("DicLastNames");
+
+            entity.HasKey(x => x.LastNameId);
+
+            entity.Property(x => x.LastNameId)
+                .HasColumnName("LastNameID");
+
+            entity.Property(x => x.LastName)
+                .HasColumnName("LastName");
         });
     }
 }
