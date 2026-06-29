@@ -30,6 +30,27 @@ public sealed class PersonRepository
     }
 
     /// <summary>
+    /// Fetches the identity fields (FirstName/LastName/BirthDate) we have
+    /// on file for a PersonId, to compare against what BPR returns.
+    /// </summary>
+    public async Task<(string? FirstName, string? LastName, DateTime? BirthDate)?> GetPersonIdentityAsync(
+        long personId,
+        CancellationToken ct)
+    {
+        await using var db =
+            await _contextFactory.CreateDbContextAsync(ct);
+
+        var person = await db.Persons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.PersonId == personId, ct);
+
+        if (person == null)
+            return null;
+
+        return (person.FirstName, person.LastName, person.BirthDate);
+    }
+
+    /// <summary>
     /// Finds every PersonId connected to <paramref name="personId"/> via a
     /// shared PassportNum (transitively — A↔B via doc X, B↔C via doc Y means
     /// A, B, C are all the same real human). A shared passport number is the

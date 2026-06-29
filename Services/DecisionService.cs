@@ -71,9 +71,18 @@ public sealed class DecisionService
                 .Select(x => x!)
                 .ToList();
 
+            // Kept for diagnostics/visibility in the report only — per the
+            // spec, document-number matching is NOT part of the VALID
+            // decision criteria (see DecideStatusAsync), only name/surname/
+            // birthdate/SSN are.
             check.BprDocuments = bprDocuments;
             check.DocumentsMatch = _documentComparisonService.IsMatch(dbDocuments, bprDocuments);
             check.Ssn = response.Ssn;
+
+            var bprPerson = response.Persons?.FirstOrDefault();
+            check.BprFirstName = bprPerson?.FirstName;
+            check.BprLastName = bprPerson?.LastName;
+            check.BprBirthDate = bprPerson?.BirthDate;
 
             if (!string.IsNullOrWhiteSpace(response.Ssn) &&
                 !decision.SsnCandidates.Contains(response.Ssn))
@@ -83,6 +92,11 @@ public sealed class DecisionService
 
             decision.Checks.Add(check);
         }
+
+        var dbIdentity = await _personRepository.GetPersonIdentityAsync(personId, ct);
+        decision.DbFirstName = dbIdentity?.FirstName;
+        decision.DbLastName = dbIdentity?.LastName;
+        decision.DbBirthDate = dbIdentity?.BirthDate;
 
         DecideStatus(decision, checks);
 
@@ -102,6 +116,9 @@ public sealed class DecisionService
                 ct);
         }
     }
+
+    private static string? NormalizeName(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
     private static void DecideStatus(
         ValidationDecision decision,
@@ -135,9 +152,26 @@ public sealed class DecisionService
 
         var ssn = decision.SsnCandidates[0];
 
-        var hasDocumentMismatch = successfulChecks
-            .Where(c => c.Ssn == ssn)
-            .Any(c => !c.DocumentsMatch);
+        var checksForSsn = successfulChecks.Where(c => c.Ssn == ssn).ToList();
+
+        // BPR-internal consistency: every passport query for this person
+        // must agree on FirstName/LastName/BirthDate, not just SSN.
+        var identityTuples = checksForSsn
+            .Select(c => (
+                First: NormalizeName(c.BprFirstName),
+                Last: NormalizeName(c.BprLastName),
+                Dob: c.BprBirthDate?.Date))
+            .Where(t => t.First != null || t.Last != null || t.Dob != null)
+            .Distinct()
+            .ToList();
+
+        if (identityTuples.Count > 1)
+        {
+            decision.Status = "AMBIGUOUS";
+            decision.Reason =
+                "BPR responses for this person's passports disagree with each other on name/surname/birthdate.";
+            return;
+        }
 
         var hasInvalidResponse = checks
             .Where(c => c.Response != null && c.Response.Ssn == ssn)
@@ -150,10 +184,31 @@ public sealed class DecisionService
             return;
         }
 
-        if (hasDocumentMismatch)
+        // No BPR identity at all to compare against our Persons record —
+        // can't confirm a name/DOB match, so don't write the SocialCard.
+        if (identityTuples.Count == 0)
+        {
+            decision.Status = "NO_SSN";
+            decision.Reason = "Validator returned an SSN but no name/surname/birthdate to confirm identity against.";
+            return;
+        }
+
+        var bprIdentity = identityTuples[0];
+        var dbFirst = NormalizeName(decision.DbFirstName);
+        var dbLast = NormalizeName(decision.DbLastName);
+        var dbDob = decision.DbBirthDate?.Date;
+
+        var mismatched = new List<string>();
+        if (bprIdentity.First != dbFirst) mismatched.Add("FirstName");
+        if (bprIdentity.Last != dbLast) mismatched.Add("LastName");
+        if (bprIdentity.Dob != dbDob) mismatched.Add("BirthDate");
+
+        if (mismatched.Count > 0)
         {
             decision.Status = "MISMATCH";
-            decision.Reason = "Documents on file do not match BPR records.";
+            decision.MismatchedFields = mismatched;
+            decision.Reason =
+                $"BPR identity confirmed (valid), but does not match our Persons record on: {string.Join(", ", mismatched)}.";
             return;
         }
 

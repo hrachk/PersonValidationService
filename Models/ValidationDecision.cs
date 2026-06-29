@@ -21,6 +21,17 @@ namespace PersonValidationService.Models
 
         public string? Reason { get; set; }
 
+        /// <summary>Our own FirstName/LastName/BirthDate on file, used for the
+        /// comparison against BPR's (internally-consistent) identity.</summary>
+        public string? DbFirstName { get; set; }
+        public string? DbLastName { get; set; }
+        public DateTime? DbBirthDate { get; set; }
+
+        /// <summary>Which field(s) — FirstName/LastName/BirthDate — disagreed
+        /// when comparing BPR's identity against our Persons record. Empty
+        /// when there was no mismatch (or no comparison was reached).</summary>
+        public List<string> MismatchedFields { get; set; } = [];
+
         public List<PassportCheckResult> Checks { get; set; } = [];
     }
 }

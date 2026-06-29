@@ -42,6 +42,15 @@ public sealed class AppDbContext : DbContext
 
             entity.Property(x => x.SocialCard)
                 .HasColumnName("SocialCard");
+
+            entity.Property(x => x.FirstName)
+                .HasColumnName("FirstName");
+
+            entity.Property(x => x.LastName)
+                .HasColumnName("LastName");
+
+            entity.Property(x => x.BirthDate)
+                .HasColumnName("BirthDate");
         });
     }
 }

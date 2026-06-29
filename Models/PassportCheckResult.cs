@@ -18,6 +18,12 @@ namespace PersonValidationService.Models
 
         public List<string> BprDocuments { get; set; } = [];
 
+        public string? BprFirstName { get; set; }
+
+        public string? BprLastName { get; set; }
+
+        public DateTime? BprBirthDate { get; set; }
+
         public string? Error { get; set; }
     }
 }
