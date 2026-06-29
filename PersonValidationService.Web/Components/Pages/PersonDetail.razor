@@ -47,8 +47,8 @@
                 <span class="mini-label">Паспортов проверено</span>
             </div>
             <div class="mini-stat">
-                <span class="mini-value">@_decision.Checks.Count(c => c.DocumentsMatch)</span>
-                <span class="mini-label">Совпадений документов</span>
+                <span class="mini-value">@(_decision.MismatchedFields.Count == 0 ? "—" : string.Join(", ", _decision.MismatchedFields.Select(StatusPresentation.FieldLabel)))</span>
+                <span class="mini-label">Несовпадающие поля</span>
             </div>
             <div class="mini-stat">
                 <span class="mini-value">@_decision.Checks.Count(c => c.Error != null)</span>
@@ -56,28 +56,43 @@
             </div>
         </div>
 
+        @if (_decision.DbFirstName != null || _decision.DbLastName != null || _decision.DbBirthDate != null
+             || _decision.MismatchedFields.Count > 0)
+        {
+            var bpr = _decision.Checks.FirstOrDefault(c => c.BprFirstName != null || c.BprLastName != null || c.BprBirthDate != null);
+            bool fMis = _decision.MismatchedFields.Contains("FirstName");
+            bool lMis = _decision.MismatchedFields.Contains("LastName");
+            bool dMis = _decision.MismatchedFields.Contains("BirthDate");
+
+            <h3 class="section-title">Сверка личности (БД vs BPR)</h3>
+            <div class="identity-compare">
+                <div class="identity-col">
+                    <span class="identity-col-title">В базе (Persons)</span>
+                    <div class="identity-row @(fMis ? "field-mismatch" : "")">Имя: <b>@(_decision.DbFirstName ?? "—")</b></div>
+                    <div class="identity-row @(lMis ? "field-mismatch" : "")">Фамилия: <b>@(_decision.DbLastName ?? "—")</b></div>
+                    <div class="identity-row @(dMis ? "field-mismatch" : "")">Дата рождения: <b>@(_decision.DbBirthDate?.ToString("dd.MM.yyyy") ?? "—")</b></div>
+                </div>
+                <div class="identity-arrow">⇄</div>
+                <div class="identity-col">
+                    <span class="identity-col-title">От BPR</span>
+                    <div class="identity-row @(fMis ? "field-mismatch" : "")">Имя: <b>@(bpr?.BprFirstName ?? "—")</b></div>
+                    <div class="identity-row @(lMis ? "field-mismatch" : "")">Фамилия: <b>@(bpr?.BprLastName ?? "—")</b></div>
+                    <div class="identity-row @(dMis ? "field-mismatch" : "")">Дата рождения: <b>@(bpr?.BprBirthDate?.ToString("dd.MM.yyyy") ?? "—")</b></div>
+                </div>
+            </div>
+        }
+
         <h3 class="section-title">Детали по паспортам</h3>
 
         @foreach (var check in _decision.Checks)
         {
-            var onlyInDb = check.DbDocuments
-                .Except(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var onlyInBpr = check.BprDocuments
-                .Except(check.DbDocuments, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var common = check.DbDocuments
-                .Intersect(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
             <div class="check-card @(check.DocumentsMatch ? "check-ok" : "")">
                 <div class="check-card-header">
                     <span class="check-passport">@check.Passport</span>
-                    <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
-                        @(check.DocumentsMatch ? "✓ Документы совпадают" : "✗ Несовпадение документов")
-                    </span>
+                    @if (!string.IsNullOrWhiteSpace(check.BprFirstName) || !string.IsNullOrWhiteSpace(check.BprLastName))
+                    {
+                        <span class="check-bpr-identity">BPR: @check.BprFirstName @check.BprLastName @(check.BprBirthDate?.ToString("dd.MM.yyyy"))</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(check.Ssn))
                     {
                         <span class="check-ssn">SSN: @check.Ssn</span>
@@ -90,6 +105,24 @@
                 }
                 else
                 {
+                    var onlyInDb = check.DbDocuments
+                        .Except(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var onlyInBpr = check.BprDocuments
+                        .Except(check.DbDocuments, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var common = check.DbDocuments
+                        .Intersect(check.BprDocuments, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    <div class="doc-compare-note" title="Совпадение документов — справочная информация, на статус VALID/MISMATCH не влияет (решение принимается по ФИО/дате рождения)">
+                        <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
+                            @(check.DocumentsMatch ? "✓" : "✗")
+                        </span>
+                        Документы (справочно)
+                    </div>
                     <div class="doc-compare">
                         <div class="doc-column">
                             <span class="doc-column-title">Совпадают (@common.Count)</span>

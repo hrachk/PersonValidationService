@@ -43,6 +43,24 @@
         </div>
     }
 
+    @if (GetCount("MISMATCH") > 0)
+    {
+        <div class="mismatch-reasons">
+            <span class="mismatch-reasons-label">Причины MISMATCH:</span>
+            @foreach (var stat in MismatchFieldStats)
+            {
+                <span class="mismatch-chip @(_mismatchFieldFilter == stat.Field ? "active" : "")"
+                      @onclick="() => SetMismatchFieldFilter(stat.Field)">
+                    @stat.Label <b>@stat.Count</b>
+                </span>
+            }
+            @if (_mismatchFieldFilter != null)
+            {
+                <span class="mismatch-clear" @onclick="ClearMismatchFieldFilter">✕ сбросить</span>
+            }
+        </div>
+    }
+
     @if (_newSinceLastView > 0)
     {
         <div class="new-records-banner" @onclick="DismissNewBanner">
@@ -114,35 +132,64 @@
 
                 <div class="decision-body-wrapper @(isExpanded ? "expanded" : "")">
                     <div class="decision-body">
-                        <table class="checks-table">
-                            <thead>
-                                <tr>
-                                    <th>Паспорт</th>
-                                    <th>Match</th>
-                                    <th>SSN</th>
-                                    <th>DB документы</th>
-                                    <th>BPR документы</th>
-                                    <th>Ошибка</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var check in decision.Checks)
-                                {
+                        @if (decision.DbFirstName != null || decision.DbLastName != null || decision.DbBirthDate != null
+                             || decision.MismatchedFields.Count > 0)
+                        {
+                            var bpr = GetBprIdentity(decision);
+                            bool fMis = decision.MismatchedFields.Contains("FirstName");
+                            bool lMis = decision.MismatchedFields.Contains("LastName");
+                            bool dMis = decision.MismatchedFields.Contains("BirthDate");
+
+                            <div class="identity-compare">
+                                <div class="identity-col">
+                                    <span class="identity-col-title">В базе (Persons)</span>
+                                    <div class="identity-row @(fMis ? "field-mismatch" : "")">Имя: <b>@(decision.DbFirstName ?? "—")</b></div>
+                                    <div class="identity-row @(lMis ? "field-mismatch" : "")">Фамилия: <b>@(decision.DbLastName ?? "—")</b></div>
+                                    <div class="identity-row @(dMis ? "field-mismatch" : "")">Дата рождения: <b>@(decision.DbBirthDate?.ToString("dd.MM.yyyy") ?? "—")</b></div>
+                                </div>
+                                <div class="identity-arrow">⇄</div>
+                                <div class="identity-col">
+                                    <span class="identity-col-title">От BPR</span>
+                                    <div class="identity-row @(fMis ? "field-mismatch" : "")">Имя: <b>@(bpr.First ?? "—")</b></div>
+                                    <div class="identity-row @(lMis ? "field-mismatch" : "")">Фамилия: <b>@(bpr.Last ?? "—")</b></div>
+                                    <div class="identity-row @(dMis ? "field-mismatch" : "")">Дата рождения: <b>@(bpr.Dob?.ToString("dd.MM.yyyy") ?? "—")</b></div>
+                                </div>
+                            </div>
+                        }
+                        <div class="checks-table-scroll">
+                            <table class="checks-table">
+                                <thead>
                                     <tr>
-                                        <td>@((MarkupString)HighlightText(check.Passport))</td>
-                                        <td>
-                                            <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")">
-                                                @(check.DocumentsMatch ? "✓" : "✗")
-                                            </span>
-                                        </td>
-                                        <td>@(check.Ssn ?? "—")</td>
-                                        <td>@string.Join(", ", check.DbDocuments)</td>
-                                        <td>@(check.BprDocuments.Count > 0 ? string.Join(", ", check.BprDocuments) : "—")</td>
-                                        <td class="error-cell">@(check.Error ?? "—")</td>
+                                        <th>Паспорт</th>
+                                        <th>SSN</th>
+                                        <th>BPR Имя</th>
+                                        <th>BPR Фамилия</th>
+                                        <th>BPR ДР</th>
+                                        <th title="Пересечение номеров документов — справочно, на решение не влияет">Документы (инфо)</th>
+                                        <th>Ошибка</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var check in decision.Checks)
+                                    {
+                                        <tr>
+                                            <td>@((MarkupString)HighlightText(check.Passport))</td>
+                                            <td>@(check.Ssn ?? "—")</td>
+                                            <td>@(check.BprFirstName ?? "—")</td>
+                                            <td>@(check.BprLastName ?? "—")</td>
+                                            <td>@(check.BprBirthDate?.ToString("dd.MM.yyyy") ?? "—")</td>
+                                            <td>
+                                                <span class="match-icon @(check.DocumentsMatch ? "match-ok" : "match-fail")"
+                                                      title="@($"DB: {string.Join(", ", check.DbDocuments)} | BPR: {(check.BprDocuments.Count > 0 ? string.Join(", ", check.BprDocuments) : "—")}")">
+                                                    @(check.DocumentsMatch ? "✓" : "✗")
+                                                </span>
+                                            </td>
+                                            <td class="error-cell">@(check.Error ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -170,6 +217,7 @@
 
     private string _search = "";
     private string _filterGroup = "ALL";
+    private string? _mismatchFieldFilter;
     private readonly HashSet<long> _expanded = [];
     private Timer? _autoRefreshTimer;
     private bool _autoRefresh = true;
@@ -183,6 +231,35 @@
     {
         public string WidthPercentCss => Percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
         public string Tooltip => $"{Label}: {Count} ({Percent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%)";
+    }
+
+    private record MismatchFieldStat(string Field, string Label, int Count);
+
+    private IEnumerable<MismatchFieldStat> MismatchFieldStats
+    {
+        get
+        {
+            var mismatched = _all.Where(d => d.Status == "MISMATCH").ToList();
+            if (mismatched.Count == 0)
+                yield break;
+
+            foreach (var field in new[] { "FirstName", "LastName", "BirthDate" })
+            {
+                var count = mismatched.Count(d => d.MismatchedFields.Contains(field));
+                if (count == 0) continue;
+                yield return new MismatchFieldStat(field, StatusPresentation.FieldLabel(field), count);
+            }
+        }
+    }
+
+    /// <summary>BPR's identity for a decision, taken from whichever check
+    /// actually returned one — for a VALID/MISMATCH decision all checks for
+    /// the matched SSN already agree with each other (see DecisionService),
+    /// so any one of them is representative.</summary>
+    private static (string? First, string? Last, DateTime? Dob) GetBprIdentity(ValidationDecision d)
+    {
+        var c = d.Checks.FirstOrDefault(x => x.BprFirstName != null || x.BprLastName != null || x.BprBirthDate != null);
+        return (c?.BprFirstName, c?.BprLastName, c?.BprBirthDate);
     }
 
     protected override void OnInitialized()
@@ -246,6 +323,22 @@
     private void SetFilterGroup(string group)
     {
         _filterGroup = group;
+        _mismatchFieldFilter = null;
+        _page = 1;
+        RecomputeFiltered();
+    }
+
+    private void SetMismatchFieldFilter(string field)
+    {
+        _filterGroup = "MISMATCH";
+        _mismatchFieldFilter = _mismatchFieldFilter == field ? null : field;
+        _page = 1;
+        RecomputeFiltered();
+    }
+
+    private void ClearMismatchFieldFilter()
+    {
+        _mismatchFieldFilter = null;
         _page = 1;
         RecomputeFiltered();
     }
@@ -255,16 +348,24 @@
         _autoRefresh = e.Value is bool b && b;
     }
 
-    private bool MatchesGroup(ValidationDecision d) => _filterGroup switch
+    private bool MatchesGroup(ValidationDecision d)
     {
-        "ALL" => true,
-        "VALID" => d.Status == "VALID",
-        "MISMATCH" => d.Status == "MISMATCH",
-        "AMBIGUOUS" => d.Status == "AMBIGUOUS",
-        "NO_DATA" => NoDataStatuses.Contains(d.Status),
-        "PROBLEM" => ProblemStatuses.Contains(d.Status),
-        _ => true
-    };
+        var inGroup = _filterGroup switch
+        {
+            "ALL" => true,
+            "VALID" => d.Status == "VALID",
+            "MISMATCH" => d.Status == "MISMATCH",
+            "AMBIGUOUS" => d.Status == "AMBIGUOUS",
+            "NO_DATA" => NoDataStatuses.Contains(d.Status),
+            "PROBLEM" => ProblemStatuses.Contains(d.Status),
+            _ => true
+        };
+
+        if (!inGroup)
+            return false;
+
+        return _mismatchFieldFilter == null || d.MismatchedFields.Contains(_mismatchFieldFilter);
+    }
 
     private void RecomputeFiltered()
     {

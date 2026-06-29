@@ -25,4 +25,12 @@ public static class StatusPresentation
         "NO_DOCUMENTS_IN_DB" => "📄",
         _ => "•"
     };
+
+    public static string FieldLabel(string field) => field switch
+    {
+        "FirstName" => "Имя",
+        "LastName" => "Фамилия",
+        "BirthDate" => "Дата рождения",
+        _ => field
+    };
 }
