@@ -33,11 +33,11 @@ public sealed class WorkerStatusReaderService
                 _filePath,
                 FileMode.Open,
                 FileAccess.Read,
-                FileShare.ReadWrite);
+                FileShare.ReadWrite | FileShare.Delete);
 
             return JsonSerializer.Deserialize<WorkerStatus>(stream);
         }
-        catch (Exception ex) when (ex is IOException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             // Worker may be mid-write (rare, given the temp-file+move pattern
             // it uses) — just skip this poll, the next one will pick up the
