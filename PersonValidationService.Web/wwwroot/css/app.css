@@ -258,44 +258,77 @@ html, body {
 .add-panel-wrapper {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.25s ease;
+    transition: max-height 0.3s ease;
 }
 
 .add-panel-wrapper.expanded {
-    max-height: 320px;
+    max-height: 360px;
 }
 
 .add-panel {
     margin-top: -4px;
-    padding: 16px;
-    background: var(--bg-card);
+    padding: 18px;
+    background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius);
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
+/* Segmented control, iOS-style: one track, a sliding highlighted pill
+   behind whichever option is active, instead of two separate buttons. */
 .add-panel-modes {
-    display: flex;
-    gap: 6px;
+    position: relative;
+    display: inline-flex;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 24px;
+    padding: 3px;
+    width: fit-content;
 }
 
 .add-mode-btn {
-    background: var(--bg-secondary);
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    border: none;
     color: var(--text-secondary);
-    border: 1px solid var(--border-subtle);
     border-radius: 20px;
-    padding: 5px 14px;
+    padding: 7px 18px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    font-family: inherit;
     cursor: pointer;
+    transition: color 0.2s ease;
 }
 
 .add-mode-btn.active {
-    background: var(--accent-gold);
     color: #0b0e11;
-    border-color: var(--accent-gold);
+}
+
+/* The sliding pill itself — positioned via the wrapper's data-mode attribute
+   so a single element animates left/right instead of swapping classes on
+   two separate backgrounds (smoother, avoids any flash-of-default-style). */
+.add-panel-modes::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    bottom: 3px;
+    width: calc(50% - 3px);
+    background: linear-gradient(135deg, var(--accent-gold), #d9a30a);
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(240, 185, 11, 0.35);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.add-panel-modes.mode-bulk::before {
+    transform: translateX(100%);
 }
 
 .add-panel-row {
@@ -304,29 +337,44 @@ html, body {
     gap: 10px;
 }
 
-.add-input {
-    flex: 1;
-    background: var(--bg-secondary);
+.add-input,
+.add-textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 11px 15px;
     font-size: 14px;
+    font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    letter-spacing: 0.3px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.add-input::placeholder,
+.add-textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
     font-family: inherit;
+}
+
+.add-input:focus,
+.add-textarea:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 3px rgba(240, 185, 11, 0.15);
+}
+
+.add-input {
+    flex: 1;
 }
 
 .add-textarea {
     width: 100%;
     min-height: 90px;
     resize: vertical;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-primary);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 14px;
-    font-family: inherit;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .add-hint {
@@ -336,24 +384,36 @@ html, body {
 }
 
 .add-submit-btn {
-    background: var(--accent-gold);
+    appearance: none;
+    -webkit-appearance: none;
+    background: linear-gradient(135deg, var(--accent-gold), #d9a30a);
     color: #0b0e11;
     border: none;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-weight: 700;
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-weight: 800;
     font-size: 14px;
+    font-family: inherit;
     cursor: pointer;
     white-space: nowrap;
-    transition: filter 0.15s ease;
+    box-shadow: 0 3px 10px rgba(240, 185, 11, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .add-submit-btn:hover:not(:disabled) {
-    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 16px rgba(240, 185, 11, 0.35);
+    filter: brightness(1.05);
+}
+
+.add-submit-btn:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .add-submit-btn:disabled {
-    opacity: 0.45;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    box-shadow: none;
     cursor: not-allowed;
 }
 

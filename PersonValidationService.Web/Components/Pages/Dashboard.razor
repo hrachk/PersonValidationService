@@ -150,7 +150,7 @@
 
     <div class="add-panel-wrapper @(_addPanelOpen ? "expanded" : "")">
         <div class="add-panel">
-            <div class="add-panel-modes">
+            <div class="add-panel-modes @(_addMode == "bulk" ? "mode-bulk" : "")">
                 <button class="add-mode-btn @(_addMode == "single" ? "active" : "")" @onclick='() => SetAddMode("single")'>Один ID</button>
                 <button class="add-mode-btn @(_addMode == "bulk" ? "active" : "")" @onclick='() => SetAddMode("bulk")'>Несколько</button>
             </div>
