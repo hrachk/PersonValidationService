@@ -3,8 +3,11 @@ using PersonValidationService.Data;
 using PersonValidationService.Services;
 using PersonValidationService.Workers;
 
-
-
+// .NET doesn't register legacy code pages (Windows-1252, etc.) by default —
+// needed by PersonRepository.FixLatin1Mojibake to correctly recover
+// Armenian text from the DicFirstNames/DicLastNames tables (MySQL's
+// "latin1" charset is actually Windows-1252, not true ISO-8859-1).
+System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 var builder = Host.CreateApplicationBuilder(args);
 

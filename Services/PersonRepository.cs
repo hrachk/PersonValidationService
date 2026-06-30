@@ -72,10 +72,17 @@ public sealed class PersonRepository
     /// <summary>
     /// DicFirstNames/DicLastNames are declared latin1 charset but actually
     /// store UTF-8 encoded Armenian text byte-for-byte under that wrong
-    /// charset tag (a long-standing, very common MySQL data-entry bug). The
-    /// connector hands back a .NET string where each char (0-255) is one
-    /// original raw byte — re-pack those chars as bytes and decode as UTF-8
-    /// to recover the real text.
+    /// charset tag (a long-standing, very common MySQL data-entry bug).
+    ///
+    /// Crucially, MySQL's "latin1" charset is NOT true ISO-8859-1 — it's
+    /// Windows-1252 (cp1252). True Latin1 maps bytes 0x80-0x9F to C0
+    /// control codepoints 128-159 (round-trips cleanly byte-for-byte), but
+    /// cp1252 maps that same byte range to printable codepoints ABOVE 255
+    /// (smart quotes, em-dash, €, etc). UTF-8 continuation bytes routinely
+    /// fall in 0x80-0x9F, so re-encoding via true Latin1 silently corrupts
+    /// them (codepoints >255 can't be packed back into Latin1's single-byte
+    /// range and get replaced with '?'/'�'). Windows-1252 round-trips
+    /// correctly instead.
     /// </summary>
     private static string? FixLatin1Mojibake(string? value)
     {
@@ -84,7 +91,8 @@ public sealed class PersonRepository
 
         try
         {
-            var bytes = System.Text.Encoding.Latin1.GetBytes(value);
+            var cp1252 = System.Text.Encoding.GetEncoding(1252);
+            var bytes = cp1252.GetBytes(value);
             return System.Text.Encoding.UTF8.GetString(bytes);
         }
         catch
