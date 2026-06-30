@@ -23,6 +23,7 @@ public sealed class ValidationWorker : BackgroundService
     private readonly PersonRepository _personRepository;
     private readonly ValidatorApiClient _validatorApiClient;
     private readonly DecisionService _decisionService;
+    private readonly WorkerStatusService _workerStatusService;
 
     public ValidationWorker(
         ILogger<ValidationWorker> logger,
@@ -30,7 +31,8 @@ public sealed class ValidationWorker : BackgroundService
         FilePersonReader filePersonReader,
         PersonRepository personRepository,
         ValidatorApiClient validatorApiClient,
-        DecisionService decisionService)
+        DecisionService decisionService,
+        WorkerStatusService workerStatusService)
     {
         _logger = logger;
         _configuration = configuration;
@@ -38,6 +40,7 @@ public sealed class ValidationWorker : BackgroundService
         _personRepository = personRepository;
         _validatorApiClient = validatorApiClient;
         _decisionService = decisionService;
+        _workerStatusService = workerStatusService;
     }
 
     protected override async Task ExecuteAsync(
@@ -62,6 +65,8 @@ public sealed class ValidationWorker : BackgroundService
         _logger.LogInformation(
             "Loaded {Count} already-processed PersonId(s) from state file",
             processedPersonIds.Count);
+
+        await _workerStatusService.WriteAsync(new() { State = "Idle" }, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -97,6 +102,8 @@ public sealed class ValidationWorker : BackgroundService
         HashSet<long> processedPersonIds,
         CancellationToken ct)
     {
+        await _workerStatusService.WriteAsync(new() { State = "Scanning" }, ct);
+
         List<long> personIds;
         try
         {
@@ -105,16 +112,21 @@ public sealed class ValidationWorker : BackgroundService
         catch (FileNotFoundException)
         {
             // Input file may not exist yet on a fresh deploy — just wait for it.
+            await _workerStatusService.WriteAsync(new() { State = "Idle" }, ct);
             return;
         }
 
         var newIds = personIds.Where(id => !processedPersonIds.Contains(id)).ToList();
         if (newIds.Count == 0)
+        {
+            await _workerStatusService.WriteAsync(new() { State = "Idle" }, ct);
             return;
+        }
 
         _logger.LogInformation("Found {Count} new PersonId(s) in {File}", newIds.Count, file);
 
         var stateDirty = false;
+        var batchDone = 0;
 
         foreach (var personId in newIds)
         {
@@ -122,6 +134,15 @@ public sealed class ValidationWorker : BackgroundService
 
             if (processedPersonIds.Contains(personId))
                 continue; // absorbed into an earlier group within this same batch
+
+            await _workerStatusService.WriteAsync(new()
+            {
+                State = "Processing",
+                CurrentPersonId = personId,
+                BatchTotal = newIds.Count,
+                BatchDone = batchDone,
+                LastActivityUtc = DateTime.UtcNow
+            }, ct);
 
             List<long> group;
             try
@@ -134,6 +155,7 @@ public sealed class ValidationWorker : BackgroundService
                     ex,
                     "Failed to resolve linked-group for PersonId={PersonId}, will retry next poll",
                     personId);
+                batchDone++;
                 continue; // not marked processed — retried on the next poll
             }
 
@@ -146,6 +168,7 @@ public sealed class ValidationWorker : BackgroundService
                 foreach (var id in group)
                     processedPersonIds.Add(id);
                 stateDirty = true;
+                batchDone++;
                 continue;
             }
 
@@ -206,10 +229,14 @@ public sealed class ValidationWorker : BackgroundService
                     "Person processing failed {PersonId}, will retry next poll",
                     personId);
             }
+
+            batchDone++;
         }
 
         if (stateDirty)
             await PersistProcessedStateAsync(statePath, processedPersonIds, ct);
+
+        await _workerStatusService.WriteAsync(new() { State = "Idle" }, ct);
     }
 
     private static async Task<HashSet<long>> LoadProcessedStateAsync(

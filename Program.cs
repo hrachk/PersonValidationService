@@ -36,6 +36,7 @@ builder.Services.AddSingleton<FilePersonReader>();
 builder.Services.AddSingleton<PersonRepository>();
 builder.Services.AddSingleton<DocumentComparisonService>();
 builder.Services.AddSingleton<JsonReportWriter>();
+builder.Services.AddSingleton<WorkerStatusService>();
 builder.Services.AddSingleton<DecisionService>();
 
 builder.Services.AddHostedService<ValidationWorker>();

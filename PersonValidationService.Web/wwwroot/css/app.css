@@ -109,10 +109,10 @@ html, body {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius);
-    padding: 18px 20px;
+    padding: 10px 14px;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    gap: 10px;
     border-top: 3px solid var(--grey);
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -129,16 +129,30 @@ html, body {
 }
 
 .stat-card .stat-value {
-    font-size: 30px;
+    font-size: 22px;
     font-weight: 800;
     line-height: 1;
 }
 
+.stat-card .stat-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
 .stat-card .stat-label {
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.stat-card .stat-percent {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.75;
 }
 
 .stat-total {
@@ -417,6 +431,73 @@ html, body {
 .status-bar-segment.status-ambiguous { background: var(--purple); }
 .status-bar-segment.status-no-ssn { background: var(--grey); }
 .status-bar-segment.status-invalid { background: var(--red); }
+
+/* ---- worker status indicator ---- */
+
+.worker-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+}
+
+.worker-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.worker-idle .worker-dot {
+    background: var(--green);
+}
+
+.worker-scanning .worker-dot {
+    background: var(--accent-gold);
+    animation: worker-pulse 1.2s ease-in-out infinite;
+}
+
+.worker-processing .worker-dot {
+    background: var(--blue);
+    animation: worker-pulse 0.8s ease-in-out infinite;
+}
+
+.worker-stalled .worker-dot {
+    background: var(--red);
+}
+
+@keyframes worker-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 185, 11, 0.5); }
+    50% { opacity: 0.6; transform: scale(1.25); box-shadow: 0 0 0 4px rgba(240, 185, 11, 0); }
+}
+
+.worker-text {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.worker-stalled .worker-text {
+    color: var(--red);
+}
+
+.worker-progress {
+    width: 120px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.worker-progress-fill {
+    height: 100%;
+    background: var(--blue);
+    transition: width 0.3s ease;
+}
 
 /* ---- new records banner ---- */
 

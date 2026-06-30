@@ -1,5 +1,6 @@
 @page "/"
 @inject DecisionReportService ReportService
+@inject WorkerStatusReaderService WorkerStatusReader
 @implements IDisposable
 
 <div class="dashboard">
@@ -7,27 +8,44 @@
     <div class="stats-row">
         <div class="stat-card stat-total @(_filterGroup == "ALL" ? "active" : "")" @onclick='() => SetFilterGroup("ALL")'>
             <span class="stat-value">@_all.Count</span>
-            <span class="stat-label">Всего проверок</span>
+            <span class="stat-text">
+                <span class="stat-label">Всего проверок</span>
+            </span>
         </div>
         <div class="stat-card status-valid @(_filterGroup == "VALID" ? "active" : "")" @onclick='() => SetFilterGroup("VALID")'>
             <span class="stat-value">@GetCount("VALID")</span>
-            <span class="stat-label">Valid</span>
+            <span class="stat-text">
+                <span class="stat-label">Valid</span>
+                <span class="stat-percent">@Percent(GetCount("VALID"))%</span>
+            </span>
         </div>
         <div class="stat-card status-mismatch @(_filterGroup == "MISMATCH" ? "active" : "")" @onclick='() => SetFilterGroup("MISMATCH")'>
             <span class="stat-value">@GetCount("MISMATCH")</span>
-            <span class="stat-label">Mismatch</span>
+            <span class="stat-text">
+                <span class="stat-label">Mismatch</span>
+                <span class="stat-percent">@Percent(GetCount("MISMATCH"))%</span>
+            </span>
         </div>
         <div class="stat-card status-ambiguous @(_filterGroup == "AMBIGUOUS" ? "active" : "")" @onclick='() => SetFilterGroup("AMBIGUOUS")'>
             <span class="stat-value">@GetCount("AMBIGUOUS")</span>
-            <span class="stat-label">Ambiguous</span>
+            <span class="stat-text">
+                <span class="stat-label">Ambiguous</span>
+                <span class="stat-percent">@Percent(GetCount("AMBIGUOUS"))%</span>
+            </span>
         </div>
         <div class="stat-card status-no-ssn @(_filterGroup == "NO_DATA" ? "active" : "")" @onclick='() => SetFilterGroup("NO_DATA")'>
             <span class="stat-value">@(GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB"))</span>
-            <span class="stat-label">No SSN / No docs</span>
+            <span class="stat-text">
+                <span class="stat-label">No SSN / No docs</span>
+                <span class="stat-percent">@Percent(GetCount("NO_SSN") + GetCount("NO_DOCUMENTS_IN_DB"))%</span>
+            </span>
         </div>
         <div class="stat-card status-invalid @(_filterGroup == "PROBLEM" ? "active" : "")" @onclick='() => SetFilterGroup("PROBLEM")'>
             <span class="stat-value">@(GetCount("INVALID") + GetCount("ERROR"))</span>
-            <span class="stat-label">Invalid / Error</span>
+            <span class="stat-text">
+                <span class="stat-label">Invalid / Error</span>
+                <span class="stat-percent">@Percent(GetCount("INVALID") + GetCount("ERROR"))%</span>
+            </span>
         </div>
     </div>
 
@@ -39,6 +57,45 @@
                 <div class="status-bar-segment @seg.CssClass"
                      style="width:@(seg.WidthPercentCss)%"
                      title="@seg.Tooltip"></div>
+            }
+        </div>
+    }
+
+    @if (_workerStatus != null)
+    {
+        var stalled = _workerStatus.UpdatedAtUtc < DateTime.UtcNow.AddSeconds(-30);
+        var stateClass = stalled ? "worker-stalled" : _workerStatus.State switch
+        {
+            "Processing" => "worker-processing",
+            "Scanning" => "worker-scanning",
+            _ => "worker-idle"
+        };
+
+        <div class="worker-indicator @stateClass">
+            <span class="worker-dot"></span>
+            <span class="worker-text">
+                @if (stalled)
+                {
+                    <text>⚠ Сервис проверки не отвечает (последняя активность: @_workerStatus.UpdatedAtUtc.ToLocalTime().ToString("HH:mm:ss"))</text>
+                }
+                else if (_workerStatus.State == "Processing")
+                {
+                    <text>⏳ Обрабатывается PersonId <b>#@_workerStatus.CurrentPersonId</b>@(_workerStatus.BatchTotal > 1 ? $" ({_workerStatus.BatchDone + 1} из {_workerStatus.BatchTotal})" : "")</text>
+                }
+                else if (_workerStatus.State == "Scanning")
+                {
+                    <text>🔍 Проверка файла на новые записи...</text>
+                }
+                else
+                {
+                    <text>✓ Сервис проверки активен, ожидает новые записи</text>
+                }
+            </span>
+            @if (_workerStatus.State == "Processing" && _workerStatus.BatchTotal > 1)
+            {
+                <div class="worker-progress">
+                    <div class="worker-progress-fill" style="width:@(((_workerStatus.BatchDone) * 100.0 / _workerStatus.BatchTotal).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
             }
         </div>
     }
@@ -220,6 +277,8 @@
     private string? _mismatchFieldFilter;
     private readonly HashSet<long> _expanded = [];
     private Timer? _autoRefreshTimer;
+    private Timer? _workerStatusTimer;
+    private WorkerStatus? _workerStatus;
     private bool _autoRefresh = true;
     private DateTime _lastLoaded = DateTime.Now;
     private int _page = 1;
@@ -265,6 +324,7 @@
     protected override void OnInitialized()
     {
         Load(isAutoRefresh: false);
+        _workerStatus = WorkerStatusReader.Read();
 
         _autoRefreshTimer = new Timer(
             _ =>
@@ -281,6 +341,29 @@
             null,
             TimeSpan.FromSeconds(8),
             TimeSpan.FromSeconds(8));
+
+        _workerStatusTimer = new Timer(
+            _ =>
+            {
+                _ = InvokeAsync(() =>
+                {
+                    var wasProcessing = _workerStatus?.State == "Processing";
+                    _workerStatus = WorkerStatusReader.Read();
+
+                    // The worker just finished a record — pull the freshly
+                    // written decision in immediately rather than waiting
+                    // up to 8s for the next scheduled full refresh.
+                    if (wasProcessing && _workerStatus?.State != "Processing" && _autoRefresh)
+                    {
+                        Load(isAutoRefresh: true);
+                    }
+
+                    StateHasChanged();
+                });
+            },
+            null,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(2));
     }
 
     private void Load(bool isAutoRefresh)
@@ -395,6 +478,9 @@
 
     private int GetCount(string status) => _all.Count(d => d.Status == status);
 
+    private string Percent(int count) =>
+        _all.Count == 0 ? "0" : Math.Round(count * 100.0 / _all.Count, 1).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
     private IEnumerable<StatusSegment> StatusSegments
     {
         get
@@ -450,5 +536,6 @@
     public void Dispose()
     {
         _autoRefreshTimer?.Dispose();
+        _workerStatusTimer?.Dispose();
     }
 }

@@ -7,6 +7,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<DecisionReportService>();
+builder.Services.AddSingleton<WorkerStatusReaderService>();
 
 var app = builder.Build();
 
