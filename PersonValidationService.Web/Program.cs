@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<DecisionReportService>();
 builder.Services.AddSingleton<WorkerStatusReaderService>();
+builder.Services.AddSingleton<PersonIdInputService>();
 
 var app = builder.Build();
 

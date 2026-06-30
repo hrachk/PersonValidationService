@@ -231,6 +231,166 @@ html, body {
     margin-left: auto;
 }
 
+/* ---- add PersonId trigger + panel ---- */
+
+.add-id-btn {
+    background: transparent;
+    color: var(--accent-gold);
+    border: 1px solid rgba(240, 185, 11, 0.4);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+
+.add-id-btn:hover {
+    background: rgba(240, 185, 11, 0.1);
+}
+
+.add-id-btn.active {
+    background: var(--accent-gold);
+    color: #0b0e11;
+}
+
+.add-panel-wrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+}
+
+.add-panel-wrapper.expanded {
+    max-height: 320px;
+}
+
+.add-panel {
+    margin-top: -4px;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.add-panel-modes {
+    display: flex;
+    gap: 6px;
+}
+
+.add-mode-btn {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.add-mode-btn.active {
+    background: var(--accent-gold);
+    color: #0b0e11;
+    border-color: var(--accent-gold);
+}
+
+.add-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.add-input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.add-textarea {
+    width: 100%;
+    min-height: 90px;
+    resize: vertical;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.add-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.add-submit-btn {
+    background: var(--accent-gold);
+    color: #0b0e11;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 0.15s ease;
+}
+
+.add-submit-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.add-submit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.add-result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    animation: banner-in 0.2s ease;
+}
+
+.add-result-chip {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+.add-result-ok {
+    background: rgba(14, 203, 129, 0.12);
+    color: var(--green);
+    border: 1px solid rgba(14, 203, 129, 0.3);
+}
+
+.add-result-info {
+    background: rgba(132, 142, 156, 0.12);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+    cursor: default;
+}
+
+.add-result-bad {
+    background: rgba(246, 70, 93, 0.12);
+    color: var(--red);
+    border: 1px solid rgba(246, 70, 93, 0.3);
+    cursor: default;
+}
+
 /* ---- decision cards ---- */
 
 .decision-list {
@@ -431,6 +591,78 @@ html, body {
 .status-bar-segment.status-ambiguous { background: var(--purple); }
 .status-bar-segment.status-no-ssn { background: var(--grey); }
 .status-bar-segment.status-invalid { background: var(--red); }
+
+/* ---- custom tooltip (replaces native browser title= tooltips) ---- */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: #05070a;
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: pre-line;
+    width: max-content;
+    max-width: 280px;
+    text-align: left;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 50;
+}
+
+[data-tooltip]::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 5px solid transparent;
+    border-top-color: var(--border-subtle);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 51;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+[data-tooltip].tooltip-right::after {
+    bottom: auto;
+    left: calc(100% + 9px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+}
+
+[data-tooltip].tooltip-right::before {
+    bottom: auto;
+    left: calc(100% + 4px);
+    top: 50%;
+    border-top-color: transparent;
+    border-right-color: var(--border-subtle);
+    transform: translateY(-50%) translateX(-4px);
+}
+
+[data-tooltip].tooltip-right:hover::after,
+[data-tooltip].tooltip-right:hover::before {
+    transform: translateY(-50%) translateX(0);
+}
 
 /* ---- worker status indicator ---- */
 
